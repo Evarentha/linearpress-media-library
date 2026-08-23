@@ -1,0 +1,19 @@
+<!--
+  Author: MoyuZJ
+  Team: LinearTeam
+  Contact: linearteam@foxmail.com
+  Made by MoyuZJ in China with ♥
+-->
+
+<div class="media-library-page">
+  <div class="media-library-head">
+    <div><span class="media-kicker">ASSET ROOM</span><h1>媒体库</h1><p>集中管理文章中的图片、音频与视频。</p></div>
+    <label class="media-upload-button"><span>上传媒体</span><input id="media-page-upload" type="file" accept="image/*,audio/*,video/*" multiple></label>
+  </div>
+  <div class="media-library-toolbar">
+    <div class="media-tabs" role="tablist"><button type="button" class="is-active" data-media-filter="">全部</button><button type="button" data-media-filter="image">图片</button><button type="button" data-media-filter="video">视频</button><button type="button" data-media-filter="audio">音频</button></div>
+    <span id="media-page-status" class="media-status"></span>
+  </div>
+  <section id="media-page-grid" class="media-grid" aria-live="polite"></section>
+  <div class="media-empty" id="media-page-empty" hidden>媒体库还是空的，上传第一份素材吧。</div>
+</div>
