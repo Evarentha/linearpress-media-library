@@ -7,12 +7,15 @@
 将本目录复制到宿主站点：
 
 ```bash
-cp -r Plugins/media-library Base/src/plugins/media-library
+cp -r Plugins/media-library base/src/plugins/media-library
 ```
 
 然后重启 LinearPress，后台导航会出现「媒体库」。插件也可以压缩为 ZIP 后通过插件管理页安装。
 
-## 文件存储
+
+## Cordis 运行时
+
+插件使用 `runtime: "cordis"` 和默认导出入口。数据库服务从 `ctx.databaseService` 获取，Express 路由通过 `ctx.linearpress.web` 注册，Fiber 销毁时会清理插件资源。
 
 文件本体保存在站点工作目录下：
 
@@ -26,7 +29,7 @@ uploads/<images|videos|audios>/yyyy/MM/dd/upload-HH-mm-ss.ms.<extension>
 uploads/images/2026/08/23/upload-14-05-09.027.jpg
 ```
 
-媒体元数据保存在 `media_library` 表中，插件通过 `TOKENS.databaseService` 的 SQL 接口访问数据库。因此启用 `linearpress-mysql-plugin` 后，媒体记录会跟随 MySQL 业务数据库保存；文件本体仍保存在站点的 `uploads` 目录。
+媒体元数据保存在 `media_library` 表中，插件通过 `ctx.databaseService` 的 SQL 接口访问数据库。因此启用 `linearpress-mysql-plugin` 后，媒体记录会跟随 MySQL 业务数据库保存；文件本体仍保存在站点的 `uploads` 目录。
 
 ## 编辑器兼容
 

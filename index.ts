@@ -8,11 +8,10 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { Context } from 'cordis';
 import type { Request, RequestHandler, Response } from 'express';
-import { TOKENS } from '../../core/tokens.js';
 import { checkPermission, requireAuth } from '../../services/permission.service.js';
 import type { DatabaseService } from '../../types/services.js';
-import type { PluginEntry } from '../../types/plugin.js';
 
 const PLUGIN_ID = 'media-library';
 const UPLOAD_ROOT = path.join(process.cwd(), 'uploads');
@@ -29,9 +28,7 @@ type MediaKind = 'image' | 'video' | 'audio';
 interface MediaRow { id: string; kind: MediaKind; original_name: string; filename: string; url: string; mime_type: string; size: number; created_at: string; }
 interface UploadPart { filename: string; mimeType: string; data: Buffer; }
 
-function database(context: Parameters<NonNullable<PluginEntry['activate']>>[0]): DatabaseService {
-  return context.container.resolve(TOKENS.databaseService);
-}
+function database(context: Context): DatabaseService { return context.databaseService as unknown as DatabaseService; }
 function messageOf(error: unknown): string { return error instanceof Error ? error.message : '操作失败'; }
 function json(res: Response, status: number, payload: unknown): void { res.status(status).json(payload); }
 function param(value: string | string[]): string { return Array.isArray(value) ? value[0] ?? '' : value; }
@@ -90,39 +87,40 @@ const upload: RequestHandler = async (req, res) => {
     await fs.writeFile(filePath, part.data, { flag: 'wx' });
     const url = `${MEDIA_PATH}/${kind}s/${date.year}/${date.month}/${date.day}/${stamp}${ext}`;
     const item: MediaRow = { id: crypto.randomUUID(), kind, original_name: safeName(part.filename), filename: `${stamp}${ext}`, url, mime_type: part.mimeType, size: part.data.length, created_at: new Date().toISOString() };
-    await database((req as Request & { mediaContext?: Parameters<NonNullable<PluginEntry['activate']>>[0] }).mediaContext!).run('INSERT INTO media_library(id,kind,original_name,filename,url,mime_type,size,created_at) VALUES(?,?,?,?,?,?,?,?)', item.id, item.kind, item.original_name, item.filename, item.url, item.mime_type, item.size, item.created_at);
+    await database((req as Request & { mediaContext?: Context }).mediaContext!).run('INSERT INTO media_library(id,kind,original_name,filename,url,mime_type,size,created_at) VALUES(?,?,?,?,?,?,?,?)', item.id, item.kind, item.original_name, item.filename, item.url, item.mime_type, item.size, item.created_at);
     json(res, 201, { ok: true, item });
   } catch (error) { json(res, 400, { ok: false, message: messageOf(error) }); }
 };
 
-export const activate: PluginEntry['activate'] = async (context) => {
+export default async function mediaLibrary(context: Context) {
   const db = database(context);
+  const { web } = context.linearpress;
   await db.exec(`CREATE TABLE IF NOT EXISTS media_library (id VARCHAR(64) PRIMARY KEY, kind VARCHAR(16) NOT NULL, original_name VARCHAR(255) NOT NULL, filename VARCHAR(255) NOT NULL, url VARCHAR(1024) NOT NULL, mime_type VARCHAR(150) NOT NULL, size BIGINT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
   await fs.ensureDir(UPLOAD_ROOT);
   const withContext = (handler: RequestHandler): RequestHandler => (req, res, next) => { (req as Request & { mediaContext?: typeof context }).mediaContext = context; return handler(req, res, next); };
   const dbService = () => database(context);
   const admin = [requireAuth, checkPermission('media:upload')];
-  context.hooks.on('admin:menu', (menu) => [...menu, { title: '媒体库', link: '/admin/media-library' }]);
-  context.router.register('get', '/admin/media-library', requireAuth, checkPermission('media:upload'), async (_req, res) => res.render('admin/media-library', { title: '媒体库' }));
-  context.router.register('get', '/api/media-library', requireAuth, checkPermission('media:upload'), async (req, res) => {
+  context.linearpress.hooks.on('admin:menu', (menu) => [...menu, { title: '媒体库', link: '/admin/media-library' }]);
+  web.register('get', '/admin/media-library', requireAuth, checkPermission('media:upload'), async (_req, res) => res.render('admin/media-library', { title: '媒体库' }));
+  web.register('get', '/api/media-library', requireAuth, checkPermission('media:upload'), async (req, res) => {
     const requestedKind = Array.isArray(req.query.kind) ? req.query.kind[0] : req.query.kind;
     const kind = mediaKind(requestedKind); const page = Math.max(1, Number(req.query.page) || 1); const limit = 60; const where = kind ? ' WHERE kind=?' : ''; const params = kind ? [kind] : [];
     const items = await dbService().all<MediaRow>(`SELECT id,kind,original_name,filename,url,mime_type,size,created_at FROM media_library${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`, ...params, limit, (page - 1) * limit);
     const total = await dbService().get<{ count: number }>(`SELECT COUNT(*) AS count FROM media_library${where}`, ...params);
     res.json({ ok: true, items, total: Number(total?.count || 0), page, limit });
   });
-  context.router.register('post', '/api/media-library/upload', ...admin, withContext(upload));
-  context.router.register('post', '/api/media-library/:id/delete', requireAuth, checkPermission('media:delete'), async (req, res) => {
+  web.register('post', '/api/media-library/upload', ...admin, withContext(upload));
+  web.register('post', '/api/media-library/:id/delete', requireAuth, checkPermission('media:delete'), async (req, res) => {
     const item = await dbService().get<MediaRow>('SELECT * FROM media_library WHERE id=?', param(req.params.id));
     if (!item) return json(res, 404, { ok: false, message: '媒体不存在' });
     const relative = item.url.replace(`${MEDIA_PATH}/`, ''); const filePath = path.resolve(UPLOAD_ROOT, relative);
     if (!filePath.startsWith(path.resolve(UPLOAD_ROOT) + path.sep)) return json(res, 400, { ok: false, message: '文件路径非法' });
     await fs.remove(filePath); await dbService().run('DELETE FROM media_library WHERE id=?', item.id); res.json({ ok: true });
   });
-  context.router.register('get', '/media-library/files/:kind/:year/:month/:day/:filename', async (req, res) => {
+  web.register('get', '/media-library/files/:kind/:year/:month/:day/:filename', async (req, res) => {
     const kind = mediaKind(`${param(req.params.kind).replace(/s$/, '')}`); const segments = [kind && `${kind}s`, param(req.params.year), param(req.params.month), param(req.params.day), param(req.params.filename)];
     if (!kind || segments.some((value) => !value || value.includes('..') || value.includes('/') || value.includes('\\'))) return res.status(404).end();
     const filePath = path.join(UPLOAD_ROOT, ...segments as string[]); res.sendFile(filePath, (error) => { if (!error || res.headersSent) return; const status = (error as Error & { statusCode?: number }).statusCode; res.status(status || 404).end(); });
   });
   context.logger.info('activated');
-};
+}

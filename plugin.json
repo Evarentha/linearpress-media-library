@@ -6,6 +6,7 @@
   "author": "LinearPress",
   "type": "both",
   "main": "index.ts",
+  "runtime": "cordis",
   "views": "views",
   "public": "public",
   "styles": ["media-library.css?v=1.0.3"],
