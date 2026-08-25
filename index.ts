@@ -18,7 +18,8 @@ const UPLOAD_ROOT = path.join(process.cwd(), 'uploads');
 const MEDIA_PATH = '/media-library/files';
 const MAX_UPLOAD = 256 * 1024 * 1024;
 const EXTENSIONS: Record<string, Set<string>> = {
-  image: new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.avif', '.bmp', '.ico']),
+  // 不允许 .svg：SVG 可内嵌脚本，同源托管会造成存储型 XSS。
+  image: new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.bmp', '.ico']),
   video: new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogv', '.avi', '.mkv']),
   audio: new Set(['.mp3', '.wav', '.ogg', '.oga', '.m4a', '.aac', '.flac', '.opus'])
 };
@@ -31,6 +32,10 @@ interface UploadPart { filename: string; mimeType: string; data: Buffer; }
 function database(context: Context): DatabaseService { return context.databaseService as unknown as DatabaseService; }
 function messageOf(error: unknown): string { return error instanceof Error ? error.message : '操作失败'; }
 function json(res: Response, status: number, payload: unknown): void { res.status(status).json(payload); }
+/** JSON API 处理器包装：失败时返回 { ok:false }（与 Base JSON 约定一致）。 */
+const wrapJson = (fn: (req: Request, res: Response) => Promise<unknown> | unknown): RequestHandler => (req, res) => {
+  void Promise.resolve(fn(req, res)).catch((error) => json(res, 500, { ok: false, message: messageOf(error) }));
+};
 function param(value: string | string[]): string { return Array.isArray(value) ? value[0] ?? '' : value; }
 function mediaKind(value: unknown): MediaKind | undefined { return value === 'image' || value === 'video' || value === 'audio' ? value : undefined; }
 function safeName(value: string): string { return path.basename(value).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 160) || 'upload'; }
@@ -73,24 +78,22 @@ function parseMultipart(body: Buffer, contentType: string): UploadPart {
   return found;
 }
 
-const upload: RequestHandler = async (req, res) => {
-  try {
-    const part = parseMultipart(await readBody(req), String(req.headers['content-type'] || ''));
-    const kind = inferKind(part.filename, part.mimeType);
-    if (!kind) return json(res, 400, { ok: false, message: '仅支持常见的图片、音频或视频格式' });
-    const ext = extensionFor(part.filename, part.mimeType);
-    const now = new Date(); const date = dateParts(now);
-    const folder = path.join(UPLOAD_ROOT, `${kind}s`, date.year, date.month, date.day);
-    await fs.ensureDir(folder);
-    let stamp = date.stamp; let filePath = path.join(folder, `${stamp}${ext}`);
-    while (await fs.pathExists(filePath)) { now.setMilliseconds(now.getMilliseconds() + 1); stamp = dateParts(now).stamp; filePath = path.join(folder, `${stamp}${ext}`); }
-    await fs.writeFile(filePath, part.data, { flag: 'wx' });
-    const url = `${MEDIA_PATH}/${kind}s/${date.year}/${date.month}/${date.day}/${stamp}${ext}`;
-    const item: MediaRow = { id: crypto.randomUUID(), kind, original_name: safeName(part.filename), filename: `${stamp}${ext}`, url, mime_type: part.mimeType, size: part.data.length, created_at: new Date().toISOString() };
-    await database((req as Request & { mediaContext?: Context }).mediaContext!).run('INSERT INTO media_library(id,kind,original_name,filename,url,mime_type,size,created_at) VALUES(?,?,?,?,?,?,?,?)', item.id, item.kind, item.original_name, item.filename, item.url, item.mime_type, item.size, item.created_at);
-    json(res, 201, { ok: true, item });
-  } catch (error) { json(res, 400, { ok: false, message: messageOf(error) }); }
-};
+const upload = wrapJson(async (req: Request, res: Response) => {
+  const part = parseMultipart(await readBody(req), String(req.headers['content-type'] || ''));
+  const kind = inferKind(part.filename, part.mimeType);
+  if (!kind) return json(res, 400, { ok: false, message: '仅支持常见的图片、音频或视频格式' });
+  const ext = extensionFor(part.filename, part.mimeType);
+  const now = new Date(); const date = dateParts(now);
+  const folder = path.join(UPLOAD_ROOT, `${kind}s`, date.year, date.month, date.day);
+  await fs.ensureDir(folder);
+  let stamp = date.stamp; let filePath = path.join(folder, `${stamp}${ext}`);
+  while (await fs.pathExists(filePath)) { now.setMilliseconds(now.getMilliseconds() + 1); stamp = dateParts(now).stamp; filePath = path.join(folder, `${stamp}${ext}`); }
+  await fs.writeFile(filePath, part.data, { flag: 'wx' });
+  const url = `${MEDIA_PATH}/${kind}s/${date.year}/${date.month}/${date.day}/${stamp}${ext}`;
+  const item: MediaRow = { id: crypto.randomUUID(), kind, original_name: safeName(part.filename), filename: `${stamp}${ext}`, url, mime_type: part.mimeType, size: part.data.length, created_at: new Date().toISOString() };
+  await database((req as Request & { mediaContext?: Context }).mediaContext!).run('INSERT INTO media_library(id,kind,original_name,filename,url,mime_type,size,created_at) VALUES(?,?,?,?,?,?,?,?)', item.id, item.kind, item.original_name, item.filename, item.url, item.mime_type, item.size, item.created_at);
+  json(res, 201, { ok: true, item });
+});
 
 export default async function mediaLibrary(context: Context) {
   const db = database(context);
