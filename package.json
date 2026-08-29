@@ -1,0 +1,26 @@
+{
+  "name": "@evarentha/linearpress-media-library",
+  "version": "1.0.0",
+  "private": false,
+  "description": "WordPress 风格的图片、音频和视频媒体库，兼容原版与现代编辑器。",
+  "type": "module",
+  "main": "index.ts",
+  "files": [
+    "index.ts",
+    "plugin.json",
+    "src",
+    "views",
+    "public",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "linearpress",
+    "plugin",
+    "media-library"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
