@@ -43,7 +43,7 @@ e.g. / 例如 `uploads/images/2026/08/23/upload-14-05-09.027.jpg`.
 ```bash
 cp -r Plugins/media-library base/src/plugins/media-library   # workspace / 工作区方式
 # or / 或
-git clone https://github.com/Averithen/linearpress-media-library base/src/plugins/media-library
+git clone https://github.com/Evarentha/linearpress-media-library base/src/plugins/media-library
 ```
 
 Restart，then「媒体库」appears in admin nav；or ZIP install. / 重启后后台出现「媒体库」；也可 ZIP 安装。
@@ -51,7 +51,7 @@ Restart，then「媒体库」appears in admin nav；or ZIP install. / 重启后�
 ## Local Development / 本地开发：怎么拉 / 怎么改 / 怎么跑
 
 ```bash
-git clone https://github.com/Averithen/linearpress-media-library LinearPress/Plugins/media-library
+git clone https://github.com/Evarentha/linearpress-media-library LinearPress/Plugins/media-library
 cd LinearPress/base
 npm install && npm run db:init
 sh scripts/sync-plugins.sh media-library
