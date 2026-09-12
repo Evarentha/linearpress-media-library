@@ -1,7 +1,7 @@
 {
   "id": "media-library",
   "name": "媒体库",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "WordPress 风格的图片、音频和视频媒体库，兼容原版与现代编辑器。",
   "author": "LinearPress",
   "type": "both",
@@ -9,7 +9,14 @@
   "runtime": "cordis",
   "views": "views",
   "public": "public",
-  "styles": ["media-library.css?v=1.0.3"],
-  "scripts": ["media-library.js?v=1.0.3"],
-  "permissions": ["media:upload", "media:delete"]
+  "styles": [
+    "media-library.css?v=1.0.3"
+  ],
+  "scripts": [
+    "media-library.js?v=1.0.3"
+  ],
+  "permissions": [
+    "media:upload",
+    "media:delete"
+  ]
 }
