@@ -1,8 +1,25 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * Media Library Plugin Entry Point
+ *
+ * Cordis plugin providing media upload, browsing, deletion, and file serving.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Entry point of the media-library plugin.
+ *
+ * <p>Registers the media_library schema and the admin page, then exposes a JSON API
+ * (paginated listing with kind filter, multipart upload up to 256MB, and delete with
+ * path-safe file removal) plus the /media-library/files/... static file route. Only common
+ * image / audio / video formats are accepted; SVG is rejected because it can embed scripts
+ * and cause stored XSS under same-origin hosting.</p>
+ *
+ * @since 1.0.0
  */
 
 import fs from 'fs-extra';

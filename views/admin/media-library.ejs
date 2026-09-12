@@ -1,8 +1,20 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  Media Library Admin Page View
+  Markup shell for the media library admin page; the grid is rendered client-side.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+<!--
+  Admin page shell for the media library: upload button, kind filter tabs,
+  status line, grid container, pager, and empty state. Items are rendered
+  client-side by public/media-library.js.
+
+  @since 1.0.0
 -->
 
 <div class="media-library-page">
@@ -15,5 +27,6 @@
     <span id="media-page-status" class="media-status"></span>
   </div>
   <section id="media-page-grid" class="media-grid" aria-live="polite"></section>
+  <div class="media-pager" id="media-pager"></div>
   <div class="media-empty" id="media-page-empty" hidden>媒体库还是空的，上传第一份素材吧。</div>
 </div>
