@@ -1,71 +1,37 @@
-<!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
--->
+# Media Library
 
-# 媒体库（media-library）
+[![LinearPress](https://img.shields.io/badge/LinearPress-plugin-7C3AED.svg)](https://www.npmjs.com/package/@evarentha/linearpress) [![npm](https://img.shields.io/npm/v/@evarentha/linearpress-media-library.svg)](https://www.npmjs.com/package/@evarentha/linearpress-media-library) [![Node.js](https://img.shields.io/badge/node-%3E%3D22-green.svg)](https://nodejs.org) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org) [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
 
-LinearPress 的 **WordPress 风格后台媒体库**，支持图片、音频和视频：上传、浏览、插入编辑器区块，
-文件本体存放在站点 `uploads/` 目录，元数据跟随业务数据库保存。
+**English** | [简体中文](README.zh-CN.md)
 
-> 本仓库是 LinearPress 插件 **media-library** 的独立开发仓库。插件即 Cordis 插件函数，即插即用、可停用可卸载。
+A WordPress-style media library for LinearPress. Upload images, audio, and video, browse them by kind, delete what you no longer need, and insert files into either editor. Neither editor was changed to make this work: a MutationObserver injects the picker buttons, and blocks are appended through the editors' public APIs.
 
-## 插件化的优势
+Users need `media:upload` to open the library or upload, `media:delete` to remove items; both are granted per group in the admin console.
 
-- **编辑器两侧兼容**：同时适配 Base 原版编辑器（`window.LinearPressEditor`）与现代编辑器（`window.LinearPressModernEditor`），不用改编辑器代码。
-- **存储中立**：文件在 `uploads/`，元数据在 `media_library` 表——启用 `mysql-plugin` 后媒体记录自动跟随 MySQL 业务库；换数据库不带迁移成本。
-- **即装即用**：放入 `src/plugins/` 或 ZIP 安装，重启后后台出现「媒体库」；停用只影响入口，不触碰已上传文件。
-
-## 功能
-
-- WordPress 风格媒体库：图片、音频、视频网格/列表管理
-- 编辑器兼容：媒体区块中的「媒体库」按钮替换地址；工具栏「媒体库」按钮选取并插入媒体区块；弹窗内可直接上传
-- 权限：`media:upload`（查看/上传）、`media:delete`（删除记录及文件），可在「权限组」按组授权
-- 限制：单文件最大 256MB；常见格式（JPG/PNG/GIF/WebP/SVG/AVIF/MP4/WebM/MOV/OGG/MP3/WAV/M4A/AAC/FLAC/Opus 等）
-
-## 文件存储
-
-```text
-uploads/<images|videos|audios>/yyyy/MM/dd/upload-HH-mm-ss.ms.<extension>
-```
-
-例如 `uploads/images/2026/08/23/upload-14-05-09.027.jpg`。
-
-## 安装
+## Install
 
 ```bash
-cp -r Plugins/media-library base/src/plugins/media-library   # 工作区方式
-# 或
-git clone <本仓库地址> base/src/plugins/media-library        # 拉取方式（目录名必须等于插件 id）
+git clone https://github.com/Evarentha/linearpress-media-library.git src/plugins/media-library
 ```
 
-重启 LinearPress，后台导航出现「媒体库」；也可压缩为 ZIP 用插件管理页安装。
+The directory name must equal the plugin id. Restart afterwards, or sync from the `base` checkout (`sh scripts/sync-plugins.sh media-library`), or upload the ZIP / npm name from the admin Plugins page. The admin menu then shows "媒体库", pointing at `/admin/media-library`. There is no settings page: the plugin works as installed.
 
-## 本地开发：怎么拉 / 怎么改 / 怎么跑
+## Uploads and storage
 
-```bash
-git clone <本仓库地址> LinearPress/Plugins/media-library
-cd LinearPress/base
-npm install && npm run db:init
-sh scripts/sync-plugins.sh media-library
-npm run dev
-```
+Files are capped at 256 MB each, and every upload passes a whitelist where the extension and the MIME type must agree on the same kind: images (jpg, jpeg, png, gif, webp, avif, bmp, ico), video (mp4, webm, mov, m4v, ogv, avi, mkv), audio (mp3, wav, ogg, oga, m4a, aac, flac, opus). SVG is rejected on purpose: an SVG can embed scripts, and hosting it same-origin would turn an upload into stored XSS.
 
-## 目录结构
+Files land under `uploads/<kind>s/YYYY/MM/DD/`, for example `uploads/images/2026/08/23/upload-14-05-09.027.jpg`. Name collisions are avoided by bumping the timestamp, and the write uses the `wx` flag so an existing file is never silently overwritten. Records sit in the `media_library` table, created and queried through the database service with plain SQL, so when mysql-plugin drives the site, the table is created there and every query runs against MySQL, with no change on this side.
 
-```text
-media-library/
-├── plugin.json            # Manifest（permissions: media:upload / media:delete）
-├── index.ts               # 入口：媒体库路由、上传/删除、编辑器按钮注入
-├── views/admin/           # 媒体库页面模板
-├── public/                # 前端脚本与样式（编辑器按钮、弹窗）
-└── uploads/               # 站点运行目录（非仓库内容）
-```
+Deleting an item removes the file and its record together. Public serving goes through `GET /media-library/files/:kind/:year/:month/:day/:filename`, where any path segment containing `..`, `/`, or `\` is rejected with a 404, closing the path-traversal route.
 
-## 贡献与发布
+## Using it
 
-- conventional commits；提交前 `cd base && npm run typecheck`
-- 版本：`git tag v1.0.0 && git push --tags`
-- License：MIT（见仓库 LICENSE）
+The admin page offers kind tabs (all, image, video, audio) and pagination at 60 items per page with prev/next controls, in the page itself and in the picker modal alike, and you can upload from inside the modal without leaving the editor.
+
+In the editors, picker buttons appear inside the built-in editor's `.lp-block-image` / `-audio` / `-video` blocks and modern-editor's `.modern-block-*` equivalents, filling the media address from the library. Toolbar buttons append a matching media block through `window.LinearPressModernEditor || window.LinearPressEditor`.
+
+Other scripts can do the same: `window.LinearPressMediaLibrary.open({ kind, onSelect })` opens the picker modal, and `.upload(file)` sends a file and returns the new item. The JSON API (session required) covers `GET /api/media-library?kind=&page=` returning `{ items, total, page, limit }` at 60 per page, `POST /api/media-library/upload` (multipart), and `POST /api/media-library/:id/delete`.
+
+## License
+
+GPL-3.0-or-later, Copyright (C) 2026 Evarentha. See LICENSE.
