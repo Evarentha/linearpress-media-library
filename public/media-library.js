@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -36,7 +37,7 @@
     return modal;
   }
   function card(item, selectable = false) { const preview = item.kind === 'image' ? `<img src="${esc(item.url)}" alt="${esc(item.original_name)}" loading="lazy">` : `<span class="media-type-icon">${icon[item.kind]}</span>`; return `<article class="media-card" data-media-id="${esc(item.id)}" data-selectable="${selectable}"><div class="media-preview">${preview}</div><div class="media-card-copy"><strong title="${esc(item.original_name)}">${esc(item.original_name)}</strong><small>${kindLabel[item.kind]} · ${formatSize(item.size)}</small></div>${selectable ? '<button type="button" class="media-use">选择</button>' : '<button type="button" class="media-delete" title="删除媒体" aria-label="删除媒体">×</button>'}</article>`; }
-  function renderGrid(grid, empty, selectable) { grid.innerHTML = state.items.map((item) => card(item, selectable)).join(''); empty.hidden = state.items.length > 0; grid.querySelectorAll('.media-use').forEach((button) => button.addEventListener('click', (event) => { event.stopPropagation(); select(state.items.find((item) => item.id === button.closest('[data-media-id]')?.dataset.mediaId)); })); if (selectable) grid.querySelectorAll('.media-card').forEach((item) => { item.setAttribute('role', 'button'); item.setAttribute('tabindex', '0'); const choose = () => select(state.items.find((media) => media.id === item.dataset.mediaId)); item.addEventListener('click', choose); item.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(); } }); }); grid.querySelectorAll('.media-delete').forEach((button) => button.addEventListener('click', async (event) => { event.stopPropagation(); const id = button.closest('[data-media-id]')?.dataset.mediaId; if (id && confirm('确定删除这份媒体吗？')) { await fetch(`${api}/${id}/delete`, { method: 'POST' }); await load(); renderPage(); } })); }
+  function renderGrid(grid, empty, selectable) { grid.innerHTML = state.items.map((item) => card(item, selectable)).join(''); empty.hidden = state.items.length > 0; grid.querySelectorAll('.media-use').forEach((button) => button.addEventListener('click', (event) => { event.stopPropagation(); select(state.items.find((item) => item.id === button.closest('[data-media-id]')?.dataset.mediaId)); })); if (selectable) grid.querySelectorAll('.media-card').forEach((item) => { item.setAttribute('role', 'button'); item.setAttribute('tabindex', '0'); const choose = () => select(state.items.find((media) => media.id === item.dataset.mediaId)); item.addEventListener('click', choose); item.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(); } }); }); grid.querySelectorAll('.media-delete').forEach((button) => button.addEventListener('click', async (event) => { event.stopPropagation(); const id = button.closest('[data-media-id]')?.dataset.mediaId; if (id && confirm('确定删除这份媒体吗？')) { const response = await fetch(`${api}/${id}/delete`, { method: 'POST' }); const data = await response.json(); if (!data.ok) { alert(data.message || '删除失败'); return; } await load(); renderPage(); } })); }
   function renderPage() { const grid = document.querySelector('#media-page-grid'); if (!grid) return; renderGrid(grid, document.querySelector('#media-page-empty'), false); const status = document.querySelector('#media-page-status'); if (status) { const start = state.total ? (state.page - 1) * state.limit + 1 : 0; const end = Math.min(state.page * state.limit, state.total); status.textContent = `${start}-${end} / ${state.total} 项媒体`; } renderPager(document.querySelector('#media-pager'), state.pageKind, renderPage); }
   function renderModal() { const modal = ensureModal(); renderGrid(modal.querySelector('#media-modal-grid'), modal.querySelector('#media-modal-empty'), true); renderPager(modal.querySelector('#media-modal-pager'), state.modalKind, renderModal); }
   // 分页控件：服务端按 limit=60 分页，超过一页时展示上一页/下一页（页面与弹窗共用）。
@@ -52,7 +53,22 @@
     const label = document.createElement('span'); label.className = 'media-pager-label'; label.textContent = `第 ${state.page} / ${pages} 页 · 共 ${state.total} 项`;
     container.append(prev, label, next);
   }
-  async function load(kind = state.pageKind) { const response = await fetch(`${api}?kind=${encodeURIComponent(kind)}&page=${state.page}`); const data = await response.json(); state.items = data.ok ? data.items : []; state.total = data.ok ? Number(data.total || 0) : 0; state.limit = Number(data.limit || 60) || 60; return state.items; }
+  let loadVersion = 0;
+  async function load(kind = state.pageKind) {
+    const version = ++loadVersion;
+    const requestedPage = state.page;
+    const response = await fetch(`${api}?kind=${encodeURIComponent(kind)}&page=${requestedPage}`);
+    const data = await response.json();
+    if (version !== loadVersion) return state.items;
+    state.total = data.ok ? Math.max(0, Number(data.total) || 0) : 0;
+    state.limit = Math.max(1, Number(data.limit) || 60);
+    const pages = Math.max(1, Math.ceil(state.total / state.limit));
+    state.page = Math.min(pages, Math.max(1, Number(data.page) || requestedPage));
+    // Accept the server's clamped page; also recover with older servers that return an empty stale page.
+    if (data.ok && requestedPage !== state.page && Number(data.page) !== state.page) return load(kind);
+    state.items = data.ok ? data.items : [];
+    return state.items;
+  }
   async function upload(file) { const form = new FormData(); form.append('file', file); const response = await fetch(`${api}/upload`, { method: 'POST', body: form }); const data = await response.json(); if (!data.ok) { alert(data.message || '上传失败'); return null; } await load(); renderPage(); return data.item; }
   function select(item) { if (!item || (state.modalAllowedKind && item.kind !== state.modalAllowedKind)) return; const callback = state.callback; close(); callback?.(item); }
   function close() { document.querySelector('#media-library-modal')?.classList.remove('is-open'); state.callback = null; }

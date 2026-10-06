@@ -1,3 +1,16 @@
+/*
+ * LinearPress Media Library
+ *
+ * Styles the media library interface for LinearPress.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 /* 全宽媒体库页隐藏后台右栏，避免与工具栏/网格重叠 */
 .admin-columns:has(.media-library-page) .admin-right{display:none}
 .admin-columns:has(.media-library-page){grid-template-columns:1fr}

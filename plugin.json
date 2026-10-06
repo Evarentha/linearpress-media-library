@@ -10,10 +10,10 @@
   "views": "views",
   "public": "public",
   "styles": [
-    "media-library.css?v=1.0.3"
+    "media-library.css?v=694f5fe006d7"
   ],
   "scripts": [
-    "media-library.js?v=1.0.3"
+    "media-library.js?v=4502150c9001"
   ],
   "permissions": [
     "media:upload",
